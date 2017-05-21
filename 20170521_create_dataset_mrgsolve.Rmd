@@ -1,0 +1,160 @@
+---
+title: "Create simulation dataset"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output:  
+  html_document:
+    theme: cosmo
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+      toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(mrgsolve)
+
+set.seed(1)
+```
+
+## Prepare model
+
+Ref: https://github.com/metrumresearchgroup/mrgsolve
+
+```{r}
+
+code <- "
+
+$SET delta=0.1
+
+$PARAM TVCL=0.3, TVVD=5, KA = 0.3, WT = 70, SEX = 1
+
+$CMT GUT CENT
+
+$MAIN
+double CL = exp(log(TVCL) + 0.75*log(WT/70)  + ETA(1));
+double VD = exp(log(TVVD) +      log(WT/70)  + ETA(2));
+
+$OMEGA 0.03 0.03
+
+$SIGMA 0.03
+
+$ODE
+dxdt_GUT = -KA*GUT;
+dxdt_CENT = KA*GUT - (CL/VD)*CENT;
+
+$TABLE
+double CP_IPRED = CENT/VD;
+double CP = CENT/VD * (1 + EPS(1));
+
+$CAPTURE CP CP_IPRED CL VD WT SEX
+"
+mod <- mcode("sim", code)
+
+```
+
+
+## Run simulation 
+
+```{r}
+
+## Set dose
+dose_level <- c(10,20,40,80)
+nsub_dose  <- 10
+nsub       <- length(dose_level) * nsub_dose
+
+## Set covariates
+covariates <- 
+  tibble("ID" = 1:nsub,
+         "WT" = rnorm(nsub, mean = 70, sd = 20),
+         "SEX"= rbinom(nsub, 1, 0.5))
+
+
+## Run model for each dose
+out <- tibble()
+for(k in seq_along(dose_level)){
+  cov_each = covariates[((k-1)*nsub_dose+1):(k*nsub_dose),]
+  out_each <- 
+    mod %>%
+    idata_set(cov_each) %>%
+    ev(amt=dose_level[k]) %>%
+    mrgsim(end=48, delta=0.5) %>% 
+    mutate(DOSE = dose_level[k],
+           ID_each = ID-(k-1)*nsub_dose) %>% 
+    filter(time %in% c(0.5,1,2,4,6,8,12,24,48))
+  
+  out <- bind_rows(out, out_each)
+}
+
+## Plot to check sim profile
+out %>% 
+  filter(time>0) %>% 
+  ggplot(aes(time, CP, group=ID, color=factor(ID_each))) +
+  geom_line(aes(y=CP_IPRED)) +
+  geom_point() +
+  facet_wrap(~DOSE) +
+  scale_y_log10()
+
+```
+
+
+
+## Check parameter distributions
+
+```{r}
+
+out.para <- 
+  out %>% 
+  select(ID,CL,VD,WT,SEX) %>% 
+  unique() 
+
+out.para %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(WT,Value)) +
+  geom_point() +
+  facet_wrap(~Parameter, scales="free") +
+  geom_smooth(method="lm")
+
+out.para %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(factor(SEX),Value)) +
+  geom_boxplot() +
+  facet_wrap(~Parameter, scales="free")
+
+
+out.para %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+  
+```
+
+
+
+## Export
+
+```{r}
+out %>% 
+  select(ID,TIME=time,CONC=CP) %>% 
+  write_csv("data/sim_pk_20170521.csv")
+
+out %>% 
+  select(ID,DOSE) %>% 
+  unique() %>% 
+  write_csv("data/subj_dose_20170521.csv")
+
+out %>% 
+  select(ID,DOSE, WT, SEX) %>% 
+  unique() %>% 
+  write_csv("data/subj_dose_cov_20170521.csv")
+  
+```
+
+
+
+
+
