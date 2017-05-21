@@ -60,7 +60,7 @@ fit.stan <-
 
 fit.stan
 
-#ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
 ```
 
 
@@ -110,7 +110,7 @@ fit.stan <-
 
 fit.stan
 
-#ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj.pdf")
 ```
 
 
@@ -184,8 +184,6 @@ fit.stan2 <-
   sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
 
 fit.stan2
-
-#ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
 ```
 
 
@@ -215,13 +213,55 @@ bind_cols(data.pk.id1,
 
 
 
-
-
-
-
-
-
 # Without IIV on parameters
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+mod_01_noIIV <- stan_model(file="mod_01_noIIV.stan")
+
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  sampling(mod_01_noIIV, data=data, seed=1)
+
+fit.stan
+```
+
+
+## Prediction vs Observed
+
+```{r, message=FALSE, warning=FALSE}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+
+
+
+
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 mod_01_noIIV <- stan_model(file="mod_01_noIIV.stan")

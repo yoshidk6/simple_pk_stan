@@ -3,3 +3,5 @@
 .RData
 .Ruserdata
 *.html
+mod_compiled/*
+mod_fit_ggmcmc/*
