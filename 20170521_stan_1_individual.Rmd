@@ -27,6 +27,11 @@ data.subj <- read_csv("data/subj_dose_20170521.csv")
 # Data quick look
 
 ```{r}
+data.pk %>%
+  filter(ID==1) %>% 
+  ggplot(aes(TIME, CONC)) +
+  geom_line() +
+  geom_point() 
 
 full_join(data.pk, data.subj) %>% 
   ggplot(aes(TIME, CONC, group=ID)) +
@@ -157,10 +162,7 @@ data <-
   list(N    = nrow(data.pk.id1),
        TIME = data.pk.id1$TIME,
        DOSE = 10,
-       Y    = data.pk.id1$CONC,
-       
-       N_new = nrow(data.pk.id1),
-       TIME_new = data.pk.id1$TIME)
+       Y    = data.pk.id1$CONC)
 
 fit.stan <-
   sampling(mod_00_single_subj_with_ka, data=data, seed=1)
@@ -182,10 +184,7 @@ data2 <-
   list(N    = nrow(data.pk.id1.2),
        TIME = data.pk.id1.2$TIME,
        DOSE = 10,
-       Y    = data.pk.id1.2$CONC,
-       
-       N_new = nrow(data.pk.id1.2),
-       TIME_new = data.pk.id1.2$TIME)
+       Y    = data.pk.id1.2$CONC)
 
 fit.stan2 <-
   sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
