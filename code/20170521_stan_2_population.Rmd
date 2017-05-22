@@ -20,8 +20,8 @@ library(ggmcmc)
 #rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
 
-data.pk   <- read_csv("data/sim_pk_20170521.csv") 
-data.subj <- read_csv("data/subj_dose_20170521.csv") 
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv") 
 ```
 
 # Data quick look
@@ -59,7 +59,7 @@ fit.stan <-
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_01_noIIV.pdf")
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
 ```
 
 
@@ -112,7 +112,7 @@ fit.stan <-
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_02_withIIV.pdf")
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
 ```
 
 
@@ -166,7 +166,7 @@ fit.indiv.params %>%
   geom_smooth(method="lm")
 
 
-data.cov <- read_csv("data/subj_dose_cov_20170521.csv") 
+data.cov <- read_csv("../data/subj_dose_cov_20170521.csv") 
 
 fit.indiv.params.cov <-
   full_join(fit.indiv.params, data.cov)

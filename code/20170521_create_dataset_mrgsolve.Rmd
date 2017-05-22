@@ -142,22 +142,22 @@ out.para %>%
 ```{r}
 out %>% 
   select(ID,TIME=time,CONC=CP) %>% 
-  write_csv("data/sim_pk_20170521.csv")
+  write_csv("../data/sim_pk_20170521.csv")
 
 out %>% 
   select(ID,DOSE) %>% 
   unique() %>% 
-  write_csv("data/subj_dose_20170521.csv")
+  write_csv("../data/subj_dose_20170521.csv")
 
 out %>% 
   select(ID,DOSE, WT, SEX) %>% 
   unique() %>% 
-  write_csv("data/subj_dose_cov_20170521.csv")
+  write_csv("../data/subj_dose_cov_20170521.csv")
 
 out %>% 
   select(ID,DOSE, CL:SEX) %>% 
   unique() %>% 
-  write_csv("data/subj_all_para_20170521.csv")
+  write_csv("../data/subj_all_para_20170521.csv")
   
 ```
 

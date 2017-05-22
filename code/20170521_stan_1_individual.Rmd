@@ -20,8 +20,8 @@ library(ggmcmc)
 #rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
 
-data.pk   <- read_csv("data/sim_pk_20170521.csv") 
-data.subj <- read_csv("data/subj_dose_20170521.csv") 
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv") 
 ```
 
 # Data quick look
@@ -70,7 +70,7 @@ fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
 ```
 
 ## Prediction vs Observed
@@ -122,7 +122,7 @@ fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj.pdf")
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
 ```
 
 
