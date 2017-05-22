@@ -1,0 +1,191 @@
+---
+title: "Stan analysis 2 - Population PK, with or without IIV"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+---
+
+# Setup and load data
+```{r setup, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(rstan)
+library(ggmcmc)
+
+#rstan_options(auto_write=T)
+options(mc.cores=parallel::detectCores())
+
+data.pk   <- read_csv("data/sim_pk_20170521.csv") 
+data.subj <- read_csv("data/subj_dose_20170521.csv") 
+```
+
+# Data quick look
+
+```{r}
+
+full_join(data.pk, data.subj) %>% 
+  ggplot(aes(TIME, CONC, group=ID)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~DOSE) +
+  scale_y_log10()
+
+```
+
+
+# Without IIV on parameters
+
+```{r}
+mod_01_noIIV <- stan_model(file="mod_01_noIIV.stan")
+
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  sampling(mod_01_noIIV, data=data, seed=1)
+
+#fit.stan
+
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_01_noIIV.pdf")
+```
+
+
+## Prediction vs Observed
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+
+
+
+
+# With IIV on parameters
+
+```{r}
+mod_02_withIIV <- stan_model(file="mod_02_withIIV.stan")
+
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  sampling(mod_02_withIIV, data=data, seed=1)
+
+#fit.stan
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_02_withIIV.pdf")
+```
+
+
+## Prediction vs Observed
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+## Check covariates
+
+```{r}
+
+fit.CLi <- 
+  summary(fit.stan, pars = c("CLi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+fit.VDi <- 
+  summary(fit.stan, pars = c("VDi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+
+fit.indiv.params <-
+  bind_cols(tibble(ID=1:nrow(fit.CLi)),
+            fit.CLi %>% rename(CL=mean),
+            fit.VDi %>% rename(VD=mean))
+
+
+fit.indiv.params %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+
+data.cov <- read_csv("data/subj_dose_cov_20170521.csv") 
+
+fit.indiv.params.cov <-
+  full_join(fit.indiv.params, data.cov)
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(WT,Value)) +
+  geom_point() +
+  facet_wrap(~Parameter, scales="free") +
+  geom_smooth(method="lm")
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(factor(SEX),Value)) +
+  geom_boxplot() +
+  facet_wrap(~Parameter, scales="free")
+
+
+```
+
+
+

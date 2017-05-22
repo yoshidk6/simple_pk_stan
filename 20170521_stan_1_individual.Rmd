@@ -1,0 +1,221 @@
+---
+title: "Stan analysis 1 - Single subject"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+---
+
+# Setup and load data
+```{r setup, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(rstan)
+library(ggmcmc)
+
+#rstan_options(auto_write=T)
+options(mc.cores=parallel::detectCores())
+
+data.pk   <- read_csv("data/sim_pk_20170521.csv") 
+data.subj <- read_csv("data/subj_dose_20170521.csv") 
+```
+
+# Data quick look
+
+```{r}
+
+full_join(data.pk, data.subj) %>% 
+  ggplot(aes(TIME, CONC, group=ID)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~DOSE) +
+  scale_y_log10()
+
+```
+
+
+# Single subject - Estimate only sigma
+
+```{r}
+mod_00_single_subj_onlySigma <- stan_model(file="mod_00_single_subj_onlySigma.stan")
+
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC,
+       KA = 0.3,
+       CL = 0.27,
+       VD = 4.2,
+       
+       N_new = nrow(data.pk.id1),
+       TIME_new = data.pk.id1$TIME)
+
+fit.stan <-
+  sampling(mod_00_single_subj_onlySigma, data=data, seed=1)
+
+fit.stan
+
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
+```
+
+## Prediction vs Observed
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk.id1,
+          y.pred.interval) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  #facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+# Single subject - Estimate parameters except ka
+
+```{r}
+mod_00_single_subj <- stan_model(file="mod_00_single_subj.stan")
+
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC,
+       KA   = 0.3,
+       
+       N_new = nrow(data.pk.id1),
+       TIME_new = data.pk.id1$TIME)
+
+fit.stan <-
+  sampling(mod_00_single_subj, data=data, seed=1)
+
+fit.stan
+
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="mod_fit_ggmcmc/mod_00_single_subj.pdf")
+```
+
+
+## Prediction vs Observed
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk.id1,
+          y.pred.interval) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  #facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+
+# Single subject - Estimate parameters including ka
+
+```{r}
+mod_00_single_subj_with_ka <- stan_model(file="mod_00_single_subj_with_ka.stan")
+
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC,
+       
+       N_new = nrow(data.pk.id1),
+       TIME_new = data.pk.id1$TIME)
+
+fit.stan <-
+  sampling(mod_00_single_subj_with_ka, data=data, seed=1)
+
+fit.stan
+```
+
+## See how ka change with more data
+
+```{r}
+data.pk.id1.2 <- 
+  bind_rows(data.pk.id1, data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1)
+
+data2 <- 
+  list(N    = nrow(data.pk.id1.2),
+       TIME = data.pk.id1.2$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1.2$CONC,
+       
+       N_new = nrow(data.pk.id1.2),
+       TIME_new = data.pk.id1.2$TIME)
+
+fit.stan2 <-
+  sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
+
+fit.stan2
+```
+
+
+## Prediction vs Observed
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk.id1,
+          y.pred.interval) %>% 
+  mutate(ID=as.factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  #facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
+             aes(TIME,CONC))
+
+```
+
+
+
