@@ -41,7 +41,7 @@ $MAIN
 double CL = exp(log(TVCL) + 0.75*log(WT/70)  + ETA(1));
 double VD = exp(log(TVVD) +      log(WT/70)  + ETA(2));
 
-$OMEGA 0.03 0.03
+$OMEGA 0.02 0.02
 
 $SIGMA 0.03
 
@@ -72,7 +72,7 @@ nsub       <- length(dose_level) * nsub_dose
 ## Set covariates
 covariates <- 
   tibble("ID" = 1:nsub,
-         "WT" = rnorm(nsub, mean = 70, sd = 20),
+         "WT" = rnorm(nsub, mean = 80, sd = 20),
          "SEX"= rbinom(nsub, 1, 0.5))
 
 
