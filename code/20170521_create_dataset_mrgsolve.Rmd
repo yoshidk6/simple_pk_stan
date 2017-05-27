@@ -141,7 +141,7 @@ out.para %>%
 
 ```{r}
 out %>% 
-  select(ID,TIME=time,CONC=CP) %>% 
+  select(ID,TIME=time,CONC=CP,DOSE_LEVEL=DOSE) %>% 
   write_csv("../data/sim_pk_20170521.csv")
 
 out %>% 

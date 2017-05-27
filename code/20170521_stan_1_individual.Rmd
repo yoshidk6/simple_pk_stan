@@ -17,10 +17,10 @@ library(tidyverse)
 library(rstan)
 library(ggmcmc)
 
-#rstan_options(auto_write=T)
+rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
 
-data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") %>% mutate(ID=factor(ID))
 data.subj <- read_csv("../data/subj_dose_20170521.csv") 
 ```
 
@@ -80,7 +80,7 @@ mcmc.sample <- rstan::extract(fit.stan)
 
 y.pred.interval <- 
   mcmc.sample$y_new %>% 
-  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
   t() %>% 
   tbl_df()
 
@@ -90,7 +90,7 @@ bind_cols(data.pk.id1,
   ggplot(aes(TIME, `50%`, color=ID)) +
   #facet_wrap(~ID) +
   geom_line() +
-  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
   geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
              aes(TIME,CONC))
 
@@ -133,7 +133,7 @@ mcmc.sample <- rstan::extract(fit.stan)
 
 y.pred.interval <- 
   mcmc.sample$y_new %>% 
-  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
   t() %>% 
   tbl_df()
 
@@ -143,7 +143,7 @@ bind_cols(data.pk.id1,
   ggplot(aes(TIME, `50%`, color=ID)) +
   #facet_wrap(~ID) +
   geom_line() +
-  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
   geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
              aes(TIME,CONC))
 
@@ -200,19 +200,16 @@ mcmc.sample <- rstan::extract(fit.stan)
 
 y.pred.interval <- 
   mcmc.sample$y_new %>% 
-  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
   t() %>% 
   tbl_df()
 
 bind_cols(data.pk.id1,
           y.pred.interval) %>% 
-  mutate(ID=as.factor(ID)) %>% 
-  ggplot(aes(TIME, `50%`, color=ID)) +
-  #facet_wrap(~ID) +
+  ggplot(aes(TIME, `50%`)) +
   geom_line() +
-  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
-  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
-             aes(TIME,CONC))
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`), alpha=0.1) +
+  geom_point(data=data.pk.id1, aes(TIME,CONC))
 
 ```
 

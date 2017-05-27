@@ -5,30 +5,31 @@ data {
   vector[N] Y;     # Observation
 }
 
-
 parameters {
-  real<lower=0> KA;
-  real<lower=0> CL;
-  real<lower=0> VD;
-  real<lower=0> s_Y;
+  real<lower=0> KA;  # Absorption rate constant (ka)
+  real<lower=0> CL;  # Clearance (CL)
+  real<lower=0> VD;  # Volume of distribution (Vd)
+  real<lower=0> s_Y; # SD of Y in log scale
 }
 
-
 transformed parameters {
-  vector[N] mu;
-  real KEL;
+  real KEL;     # Elimination rate constant (kel)
+  vector[N] mu; # Calculated concentration
   
+  # Calculate kel from CL and Vd
   KEL = CL / VD;
   
+  # Analytical solution of 1 compartment model
   mu = DOSE / VD * KA * (exp(-KA * TIME)-exp(-KEL * TIME))/(KEL-KA);
 }
 
-
 model {
+  # Assign strong prior to ka
   KA ~ lognormal(log(0.3), 0.1);
+  
+  # Assume Y follows log-normal distribution
   Y  ~ lognormal(log(mu),  s_Y);
 }
-
 
 generated quantities {
   vector[N] y_new;
