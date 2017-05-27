@@ -1,0 +1,193 @@
+---
+title: "Stan analysis 3 - Population PK, fix ka"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+---
+
+# Setup and load data
+```{r setup, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(rstan)
+library(ggmcmc)
+
+rstan_options(auto_write=T)
+options(mc.cores=parallel::detectCores())
+
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv")
+
+data.pk.plot <- 
+  mutate(data.pk, ID=factor(ID), DOSE_LEVEL=factor(DOSE_LEVEL))
+```
+
+# Data quick look
+
+```{r}
+
+data.pk.plot %>% 
+  ggplot(aes(TIME, CONC, group=ID, color=DOSE_LEVEL)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~DOSE_LEVEL) +
+  scale_y_log10()
+
+```
+
+
+# Without IIV on parameters
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC,
+       KA   = 1)
+
+fit.stan <-
+  stan(file = "mod_01_noIIV_fix_ka.stan", data = data)
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
+```
+
+
+## Prediction vs Observed
+
+```{r plot pred vs obs}
+mcmc.sample <- rstan::extract(fit.stan)
+
+# Plot for each subject
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.05, 0.5, 0.95)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9)  %>% 
+  mutate(ID=factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=factor(ID)),
+             aes(TIME,CONC)) +
+  ylab("CONC")
+
+
+# Plot for each dose level
+
+dat.fit.plot.each.dose <- 
+  ## Convert to Matrix
+  mcmc.sample$y_new %>% t() %>% tbl_df() %>% 
+  ## Re-groupe predicted values according to TIME and DOSE_LEVEL
+  bind_cols(data.pk,.) %>% 
+  gather(key,prediction,-(ID:DOSE_LEVEL)) %>% 
+  group_by(TIME,DOSE_LEVEL) %>%
+  ## Calc quantiles
+  summarize(`5%` =quantile(prediction, probs=0.05),
+            `50%`=quantile(prediction, probs=0.5),
+            `95%`=quantile(prediction, probs=0.95)) %>% 
+  ungroup() %>% 
+  mutate(DOSE_LEVEL=factor(DOSE_LEVEL))
+
+ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
+  facet_wrap(~DOSE_LEVEL, scale="free") +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_line( data=data.pk.plot, aes(TIME,CONC,group=ID), linetype="dotted") +
+  geom_point(data=data.pk.plot, aes(TIME,CONC,group=ID)) +
+  ylab("CONC")
+```
+
+
+
+
+
+
+# With IIV on parameters
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC,
+       KA   = 1)
+
+fit.stan <-
+  stan(file = "mod_02_withIIV_fix_ka.stan", data = data)
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
+```
+
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
+
+
+## Check covariates
+
+```{r}
+
+fit.CLi <- 
+  summary(fit.stan, pars = c("CLi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+fit.VDi <- 
+  summary(fit.stan, pars = c("VDi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+
+fit.indiv.params <-
+  bind_cols(tibble(ID=1:nrow(fit.CLi)),
+            fit.CLi %>% rename(CL=mean),
+            fit.VDi %>% rename(VD=mean))
+
+
+fit.indiv.params %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+
+data.cov <- read_csv("../data/subj_dose_cov_20170521.csv") 
+
+fit.indiv.params.cov <-
+  full_join(fit.indiv.params, data.cov)
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(WT,Value)) +
+  geom_point() +
+  facet_wrap(~Parameter, scales="free") +
+  geom_smooth(method="lm")
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(factor(SEX),Value)) +
+  geom_boxplot() +
+  facet_wrap(~Parameter, scales="free")
+
+
+```
+
+
