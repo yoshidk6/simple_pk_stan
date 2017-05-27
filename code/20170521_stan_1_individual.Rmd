@@ -43,11 +43,9 @@ full_join(data.pk, data.subj) %>%
 ```
 
 
-# Single subject - Estimate only sigma
+# Only sigma
 
 ```{r}
-mod_00_single_subj_onlySigma <- stan_model(file="mod_00_single_subj_onlySigma.stan")
-
 data.pk.id1 <- data.pk %>% filter(ID==1)
 
 data <- 
@@ -56,15 +54,14 @@ data <-
        DOSE = 10,
        Y    = data.pk.id1$CONC,
        KA = 0.3,
-       CL = 0.27,
-       VD = 4.2,
+       CL = 0.303,
+       VD = 4.91,
        
        N_new = nrow(data.pk.id1),
        TIME_new = data.pk.id1$TIME)
 
 fit.stan <-
-  sampling(mod_00_single_subj_onlySigma, data=data, seed=1)
-
+  stan(file = "mod_00_single_subj_onlySigma.stan", data = data)
 fit.stan
 
 ```
@@ -94,11 +91,9 @@ bind_cols(data.pk.id1,
 ```
 
 
-# Single subject - Estimate parameters except ka
+# Except ka
 
 ```{r}
-mod_00_single_subj <- stan_model(file="mod_00_single_subj.stan")
-
 data.pk.id1 <- data.pk %>% filter(ID==1)
 
 data <- 
@@ -112,7 +107,7 @@ data <-
        TIME_new = data.pk.id1$TIME)
 
 fit.stan <-
-  sampling(mod_00_single_subj, data=data, seed=1)
+  stan(file = "mod_00_single_subj.stan", data = data)
 
 fit.stan
 
@@ -129,11 +124,9 @@ ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
 
 
 
-# Single subject - Estimate parameters including ka
+# Strong prior for ka
 
 ```{r}
-mod_00_single_subj_with_ka <- stan_model(file="mod_00_single_subj_with_ka.stan")
-
 data.pk.id1 <- data.pk %>% filter(ID==1)
 
 data <- 
@@ -143,7 +136,7 @@ data <-
        Y    = data.pk.id1$CONC)
 
 fit.stan <-
-  sampling(mod_00_single_subj_with_ka, data=data, seed=1)
+  stan(file = "mod_00_single_subj_with_ka.stan", data = data)
 
 fit.stan
 ```
@@ -170,8 +163,98 @@ fit.stan2 <-
 fit.stan2
 ```
 
+## Prediction vs Observed
 
 ```{r ref.label="plot pred vs obs"}
+```
+
+
+# Weak prior for all parameters
+
+```{r}
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC)
+
+fit.stan <-
+  stan(file = "mod_00_single_subj_weakPrior.stan", data = data)
+
+fit.stan
+```
+
+## See how ka change with more data
+
+```{r}
+data.pk.id1.2 <- 
+  bind_rows(data.pk.id1, data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1) %>% 
+  bind_rows(data.pk.id1)
+
+data2 <- 
+  list(N    = nrow(data.pk.id1.2),
+       TIME = data.pk.id1.2$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1.2$CONC)
+
+fit.stan2 <-
+  sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
+
+fit.stan2
+```
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
+
+
+# Limit Vd
+
+```{r}
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC)
+
+fit.stan <-
+  stan(file = "mod_00_single_subj_limVd.stan", data = data)
+
+fit.stan
+```
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
+
+
+# Ordered parameter for KA and KEL
+
+Doesn't really work - kel go too large  
+Probably need some way to constraint parameter range with prior; otherwise initial sampling inflates K[1] and K[2] difference
+
+```{r}
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC)
+
+fit.stan <-
+  stan(file = "mod_00_single_subj_ordered.stan", data = data)
+
+fit.stan
 ```
 
 

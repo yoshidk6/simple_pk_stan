@@ -9,9 +9,8 @@ data {
 }
 
 parameters {
-  real<lower=0> KA;
-  real<lower=0> CL;
   real<lower=0> VD;
+  positive_ordered[2] K; # 1: KEL, 2: KA
   
   vector<lower=0>[N_ID] CLi;
   vector<lower=0>[N_ID] VDi;
@@ -23,12 +22,19 @@ parameters {
 }
 
 transformed parameters {
+  real<lower=0> KA;
+  real<lower=0> CL;
   vector<lower=0>[N] mu;
   vector<lower=0>[N] DOSE_N;
   vector<lower=0>[N] CL_N;
   vector<lower=0>[N] VD_N;
   vector<lower=0>[N] KEL_N;
   
+  # Transform parameters
+  KA = K[2];
+  CL = K[1] *  VD;
+  
+  # Assign individual parameters to each data
   DOSE_N = DOSE[ID];
   CL_N   = CLi[ID];
   VD_N   = VDi[ID];
@@ -40,12 +46,12 @@ transformed parameters {
 }
 
 model {
-  KA ~ lognormal(log(0.5), 0.5);
-  CL ~ lognormal(log(0.5), 0.5);
-  VD ~ lognormal(log(6),   0.5);
-  s_CL ~ lognormal(log(0.2), 1);
-  s_VD ~ lognormal(log(0.2), 1);
-  s_Y  ~ lognormal(log(0.2), 1);
+  K[1] ~ lognormal(log(0.1), 1);
+  K[2] ~ lognormal(log(0.3), 1);
+  #VD ~ lognormal(log(6), 1);
+  #s_CL ~ lognormal(log(0.2), 1);
+  #s_VD ~ lognormal(log(0.2), 1);
+  #s_Y  ~ lognormal(log(0.2), 1);
   
   CLi ~ lognormal(log(CL), s_CL);
   VDi ~ lognormal(log(VD), s_VD);

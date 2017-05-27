@@ -44,8 +44,6 @@ data.pk.plot %>%
 # Without IIV on parameters
 
 ```{r}
-mod_01_noIIV <- stan_model(file="mod_01_noIIV.stan")
-
 data <- 
   list(N    = nrow(data.pk),
        N_ID = nrow(data.subj),
@@ -55,10 +53,7 @@ data <-
        Y    = data.pk$CONC)
 
 fit.stan <-
-  sampling(mod_01_noIIV, data=data, seed=1)
-
-#fit.stan
-
+  stan(file = "mod_01_noIIV.stan", data = data)
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
@@ -124,8 +119,6 @@ ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
 # With IIV on parameters
 
 ```{r}
-mod_02_withIIV <- stan_model(file="mod_02_withIIV.stan")
-
 data <- 
   list(N    = nrow(data.pk),
        N_ID = nrow(data.subj),
@@ -135,9 +128,7 @@ data <-
        Y    = data.pk$CONC)
 
 fit.stan <-
-  sampling(mod_02_withIIV, data=data, seed=1)
-
-#fit.stan
+  stan(file = "mod_02_withIIV.stan", data = data)
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
@@ -199,3 +190,17 @@ fit.indiv.params.cov %>%
 
 
 
+# With IIV, ordered
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  stan(file = "mod_02_withIIV_ordered.stan", data = data)
+```
