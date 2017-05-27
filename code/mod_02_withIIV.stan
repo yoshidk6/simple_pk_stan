@@ -40,7 +40,7 @@ transformed parameters {
 }
 
 model {
-  KA ~ lognormal(log(0.5), 0.5);
+  KA ~ lognormal(log(1), 0.1);
   CL ~ lognormal(log(0.5), 0.5);
   VD ~ lognormal(log(6),   0.5);
   s_CL ~ lognormal(log(0.2), 1);

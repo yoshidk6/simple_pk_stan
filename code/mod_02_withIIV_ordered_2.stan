@@ -10,7 +10,8 @@ data {
 
 parameters {
   real<lower=0> VD;
-  positive_ordered[2] K; # 1: KEL, 2: KA
+  real<lower=0> KEL;
+  real<lower=0> KA_KEL_log;
   
   real<lower=0> s_CL;
   real<lower=0> s_VD;
@@ -30,9 +31,9 @@ transformed parameters {
   vector<lower=0>[N] VD_N;
   vector<lower=0>[N] KEL_N;
   
-  # Transform parameters
-  KA = K[2];
-  CL = K[1] *  VD;
+  # Calc KA and CL
+  KA = KEL * exp(KA_KEL_log);
+  CL = KEL * VD;
   
   # Assign individual parameters to each data
   DOSE_N = DOSE[ID];
@@ -46,8 +47,8 @@ transformed parameters {
 }
 
 model {
-  K[1] ~ lognormal(log(0.05),1);
-  K[2] ~ lognormal(log(1),   1);
+  KA_KEL_log ~ lognormal(log(log(10)), 1);
+  KEL ~ lognormal(log(0.05), 1);
   #VD ~ lognormal(log(6), 1);
   #s_CL ~ lognormal(log(0.2), 1);
   #s_VD ~ lognormal(log(0.2), 1);

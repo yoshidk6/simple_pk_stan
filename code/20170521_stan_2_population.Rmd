@@ -129,6 +129,8 @@ data <-
 
 fit.stan <-
   stan(file = "mod_02_withIIV.stan", data = data)
+
+fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
@@ -203,4 +205,27 @@ data <-
 
 fit.stan <-
   stan(file = "mod_02_withIIV_ordered.stan", data = data)
+
+fit.stan
 ```
+
+
+# With IIV, ordered2
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  stan(file = "mod_02_withIIV_ordered_2.stan", data = data)
+
+fit.stan
+```
+
+
+
