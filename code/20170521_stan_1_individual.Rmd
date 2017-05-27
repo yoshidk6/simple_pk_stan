@@ -20,7 +20,7 @@ library(ggmcmc)
 rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
 
-data.pk   <- read_csv("../data/sim_pk_20170521.csv") %>% mutate(ID=factor(ID))
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
 data.subj <- read_csv("../data/subj_dose_20170521.csv") 
 ```
 
@@ -75,7 +75,7 @@ ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
 
 ## Prediction vs Observed
 
-```{r}
+```{r plot pred vs obs}
 mcmc.sample <- rstan::extract(fit.stan)
 
 y.pred.interval <- 
@@ -86,13 +86,10 @@ y.pred.interval <-
 
 bind_cols(data.pk.id1,
           y.pred.interval) %>% 
-  mutate(ID=as.factor(ID)) %>% 
-  ggplot(aes(TIME, `50%`, color=ID)) +
-  #facet_wrap(~ID) +
+  ggplot(aes(TIME, `50%`)) +
   geom_line() +
-  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
-  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
-             aes(TIME,CONC))
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_point(data=data.pk.id1, aes(TIME,CONC))
 
 ```
 
@@ -125,28 +122,9 @@ fit.stan
 ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
 ```
 
-
 ## Prediction vs Observed
 
-```{r}
-mcmc.sample <- rstan::extract(fit.stan)
-
-y.pred.interval <- 
-  mcmc.sample$y_new %>% 
-  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
-  t() %>% 
-  tbl_df()
-
-bind_cols(data.pk.id1,
-          y.pred.interval) %>% 
-  mutate(ID=as.factor(ID)) %>% 
-  ggplot(aes(TIME, `50%`, color=ID)) +
-  #facet_wrap(~ID) +
-  geom_line() +
-  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
-  geom_point(data=data.pk.id1 %>% mutate(ID=as.factor(ID)),
-             aes(TIME,CONC))
-
+```{r ref.label="plot pred vs obs"}
 ```
 
 
@@ -193,24 +171,7 @@ fit.stan2
 ```
 
 
-## Prediction vs Observed
-
-```{r}
-mcmc.sample <- rstan::extract(fit.stan)
-
-y.pred.interval <- 
-  mcmc.sample$y_new %>% 
-  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
-  t() %>% 
-  tbl_df()
-
-bind_cols(data.pk.id1,
-          y.pred.interval) %>% 
-  ggplot(aes(TIME, `50%`)) +
-  geom_line() +
-  geom_ribbon(aes(ymin=`5%`, ymax=`95%`), alpha=0.1) +
-  geom_point(data=data.pk.id1, aes(TIME,CONC))
-
+```{r ref.label="plot pred vs obs"}
 ```
 
 
