@@ -17,22 +17,25 @@ library(tidyverse)
 library(rstan)
 library(ggmcmc)
 
-#rstan_options(auto_write=T)
+rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
 
 data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
-data.subj <- read_csv("../data/subj_dose_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv")
+
+data.pk.plot <- 
+  mutate(data.pk, ID=factor(ID), DOSE_LEVEL=factor(DOSE_LEVEL))
 ```
 
 # Data quick look
 
 ```{r}
 
-full_join(data.pk, data.subj) %>% 
-  ggplot(aes(TIME, CONC, group=ID)) +
+data.pk.plot %>% 
+  ggplot(aes(TIME, CONC, group=ID, color=DOSE_LEVEL)) +
   geom_line() +
   geom_point() +
-  facet_wrap(~DOSE) +
+  facet_wrap(~DOSE_LEVEL) +
   scale_y_log10()
 
 ```
@@ -65,26 +68,52 @@ ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
 
 ## Prediction vs Observed
 
-```{r}
+```{r plot pred vs obs}
 mcmc.sample <- rstan::extract(fit.stan)
 
+# Plot for each subject
 y.pred.interval <- 
   mcmc.sample$y_new %>% 
-  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
+  apply(MARGIN=2,quantile, prob=c(0.05, 0.5, 0.95)) %>% 
   t() %>% 
   tbl_df()
 
 bind_cols(data.pk,
           y.pred.interval) %>% 
-  filter(ID<=9) %>% 
-  mutate(ID=as.factor(ID)) %>% 
+  filter(ID<=9)  %>% 
+  mutate(ID=factor(ID)) %>% 
   ggplot(aes(TIME, `50%`, color=ID)) +
   facet_wrap(~ID) +
   geom_line() +
-  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
-  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=as.factor(ID)),
-             aes(TIME,CONC))
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=factor(ID)),
+             aes(TIME,CONC)) +
+  ylab("CONC")
 
+
+# Plot for each dose level
+
+dat.fit.plot.each.dose <- 
+  ## Convert to Matrix
+  mcmc.sample$y_new %>% t() %>% tbl_df() %>% 
+  ## Re-groupe predicted values according to TIME and DOSE_LEVEL
+  bind_cols(data.pk,.) %>% 
+  gather(key,prediction,-(ID:DOSE_LEVEL)) %>% 
+  group_by(TIME,DOSE_LEVEL) %>%
+  ## Calc quantiles
+  summarize(`5%` =quantile(prediction, probs=0.05),
+            `50%`=quantile(prediction, probs=0.5),
+            `95%`=quantile(prediction, probs=0.95)) %>% 
+  ungroup() %>% 
+  mutate(DOSE_LEVEL=factor(DOSE_LEVEL))
+
+ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
+  facet_wrap(~DOSE_LEVEL, scale="free") +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_line( data=data.pk.plot, aes(TIME,CONC,group=ID), linetype="dotted") +
+  geom_point(data=data.pk.plot, aes(TIME,CONC,group=ID)) +
+  ylab("CONC")
 ```
 
 
@@ -118,26 +147,7 @@ ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
 
 ## Prediction vs Observed
 
-```{r}
-mcmc.sample <- rstan::extract(fit.stan)
-
-y.pred.interval <- 
-  mcmc.sample$y_new %>% 
-  apply(MARGIN=2,quantile, prob=c(0.1, 0.5, 0.9)) %>% 
-  t() %>% 
-  tbl_df()
-
-bind_cols(data.pk,
-          y.pred.interval) %>% 
-  filter(ID<=9) %>% 
-  mutate(ID=as.factor(ID)) %>% 
-  ggplot(aes(TIME, `50%`, color=ID)) +
-  facet_wrap(~ID) +
-  geom_line() +
-  geom_ribbon(aes(ymin=`10%`, ymax=`90%`, fill=ID),alpha=0.1) +
-  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=as.factor(ID)),
-             aes(TIME,CONC))
-
+```{r ref.label="plot pred vs obs"}
 ```
 
 
