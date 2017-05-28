@@ -15,7 +15,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 library(tidyverse)
 library(rstan)
-library(ggmcmc)
 
 rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
@@ -67,7 +66,7 @@ fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
+ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
 ```
 
 ## Prediction vs Observed
@@ -114,7 +113,7 @@ fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
+ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
 ```
 
 ## Prediction vs Observed
@@ -158,7 +157,7 @@ data2 <-
        Y    = data.pk.id1.2$CONC)
 
 fit.stan2 <-
-  sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
+  stan("mod_00_single_subj_with_ka.stan", data=data2, seed=1)
 
 fit.stan2
 ```
@@ -203,7 +202,7 @@ data2 <-
        Y    = data.pk.id1.2$CONC)
 
 fit.stan2 <-
-  sampling(mod_00_single_subj_with_ka, data=data2, seed=1)
+  stan("mod_00_single_subj_with_ka.stan", data=data2, seed=1)
 
 fit.stan2
 ```

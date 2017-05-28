@@ -15,7 +15,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
 library(tidyverse)
 library(rstan)
-library(ggmcmc)
 
 rstan_options(auto_write=T)
 options(mc.cores=parallel::detectCores())
@@ -57,7 +56,7 @@ fit.stan <-
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
+ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
 ```
 
 
@@ -134,7 +133,7 @@ fit.stan
 ```
 
 ```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
+ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
 ```
 
 
@@ -227,5 +226,21 @@ fit.stan <-
 fit.stan
 ```
 
+# With IIV, limit Vd
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  stan(file = "mod_02_withIIV_limVd.stan", data = data)
+
+fit.stan
+```
 
 
