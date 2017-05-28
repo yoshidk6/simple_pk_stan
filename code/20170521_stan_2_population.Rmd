@@ -126,7 +126,8 @@ data <-
        ID   = data.pk$ID,
        TIME = data.pk$TIME,
        DOSE = data.subj$DOSE,
-       Y    = data.pk$CONC)
+       Y    = data.pk$CONC,
+       VD_low = 2)
 
 fit.stan <-
   stan(file = "mod_01_noIIV.stan", data = data)
