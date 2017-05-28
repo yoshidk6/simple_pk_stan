@@ -41,13 +41,12 @@ transformed parameters {
 }
 
 model {
-  #KA ~ lognormal(log(1), 0.1);
-  #CL ~ lognormal(log(0.5), 0.5);
-  #VD ~ lognormal(log(6),   0.5);
-  #s_CL ~ lognormal(log(0.2), 1);
-  #s_VD ~ lognormal(log(0.2), 1);
-  #s_Y  ~ lognormal(log(0.2), 1);
+  # Weak priors
+  KA ~ lognormal(log(0.5), 1);
+  CL ~ lognormal(log(0.5), 1);
+  VD ~ lognormal(log(5),   1);
   
+  # Assume CLi, VDi, and Y follows log-normal distribution
   CLi ~ lognormal(log(CL), s_CL);
   VDi ~ lognormal(log(VD), s_VD);
   Y   ~ lognormal(log(mu), s_Y);

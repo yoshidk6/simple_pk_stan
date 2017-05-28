@@ -25,7 +25,7 @@ transformed parameters {
 
 model {
   # Assign strong prior to ka
-  KA ~ lognormal(log(0.3), 0.1);
+  KA ~ lognormal(log(1), 0.1);
   
   # Assume Y follows log-normal distribution
   Y  ~ lognormal(log(mu),  s_Y);

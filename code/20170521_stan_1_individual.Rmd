@@ -23,6 +23,14 @@ data.pk   <- read_csv("../data/sim_pk_20170521.csv")
 data.subj <- read_csv("../data/subj_dose_20170521.csv") 
 ```
 
+# Summary
+Multiple ideas worked to avoid label switching, (1) weak prior on all parameters, (2) limit of Vd lower value (with weak priors), or (3) ordered variables for KA and KEL.  
+(2) was picked for consistency with population model. 
+
+The model in the blog is as follows:
+
+* Limit Vd
+
 # Data quick look
 
 ```{r}
@@ -41,85 +49,6 @@ full_join(data.pk, data.subj) %>%
 
 ```
 
-
-# Only sigma
-
-```{r}
-data.pk.id1 <- data.pk %>% filter(ID==1)
-
-data <- 
-  list(N    = nrow(data.pk.id1),
-       TIME = data.pk.id1$TIME,
-       DOSE = 10,
-       Y    = data.pk.id1$CONC,
-       KA = 0.3,
-       CL = 0.303,
-       VD = 4.91,
-       
-       N_new = nrow(data.pk.id1),
-       TIME_new = data.pk.id1$TIME)
-
-fit.stan <-
-  stan(file = "mod_00_single_subj_onlySigma.stan", data = data)
-fit.stan
-
-```
-
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj_onlySigma.pdf")
-```
-
-## Prediction vs Observed
-
-```{r plot pred vs obs}
-mcmc.sample <- rstan::extract(fit.stan)
-
-y.pred.interval <- 
-  mcmc.sample$y_new %>% 
-  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
-  t() %>% 
-  tbl_df()
-
-bind_cols(data.pk.id1,
-          y.pred.interval) %>% 
-  ggplot(aes(TIME, `50%`)) +
-  geom_line() +
-  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
-  geom_point(data=data.pk.id1, aes(TIME,CONC))
-
-```
-
-
-# Except ka
-
-```{r}
-data.pk.id1 <- data.pk %>% filter(ID==1)
-
-data <- 
-  list(N    = nrow(data.pk.id1),
-       TIME = data.pk.id1$TIME,
-       DOSE = 10,
-       Y    = data.pk.id1$CONC,
-       KA   = 0.3,
-       
-       N_new = nrow(data.pk.id1),
-       TIME_new = data.pk.id1$TIME)
-
-fit.stan <-
-  stan(file = "mod_00_single_subj.stan", data = data)
-
-fit.stan
-
-```
-
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_00_single_subj.pdf")
-```
-
-## Prediction vs Observed
-
-```{r ref.label="plot pred vs obs"}
-```
 
 
 
@@ -164,7 +93,22 @@ fit.stan2
 
 ## Prediction vs Observed
 
-```{r ref.label="plot pred vs obs"}
+```{r plot pred vs obs}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk.id1,
+          y.pred.interval) %>% 
+  ggplot(aes(TIME, `50%`)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_point(data=data.pk.id1, aes(TIME,CONC))
+
 ```
 
 

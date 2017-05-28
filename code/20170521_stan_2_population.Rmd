@@ -26,6 +26,17 @@ data.pk.plot <-
   mutate(data.pk, ID=factor(ID), DOSE_LEVEL=factor(DOSE_LEVEL))
 ```
 
+# Summary
+Strong prior worked for model w/o IIV, but with IIV, label switching issue persisted  
+Tried ordered models but seemed like prior/limit settings are tricky, didn't really work
+
+Best circumvention was to limit lower value of VD based on physiological rationale, both for typical VD and individual VD
+
+The models in the blog are as follows:
+
+* Without IIV, limit Vd
+* With IIV, limit Vd
+
 # Data quick look
 
 ```{r}
@@ -40,7 +51,7 @@ data.pk.plot %>%
 ```
 
 
-# Without IIV on parameters
+# Without IIV, strong prior
 
 ```{r}
 data <- 
@@ -52,13 +63,8 @@ data <-
        Y    = data.pk$CONC)
 
 fit.stan <-
-  stan(file = "mod_01_noIIV.stan", data = data)
+  stan(file = "mod_01_noIIV_strong_prior_ka.stan", data = data)
 ```
-
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_01_noIIV.pdf")
-```
-
 
 ## Prediction vs Observed
 
@@ -111,11 +117,33 @@ ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
 ```
 
 
+# Without IIV, limit Vd
+
+```{r}
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  stan(file = "mod_01_noIIV.stan", data = data)
+
+fit.stan
+```
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
 
 
 
 
-# With IIV on parameters
+
+# With IIV, limit Vd
 
 ```{r}
 data <- 
@@ -132,11 +160,6 @@ fit.stan <-
 
 fit.stan
 ```
-
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-ggmcmc::ggmcmc(ggs(fit.stan), file="../mod_fit_ggmcmc/mod_02_withIIV.pdf")
-```
-
 
 ## Prediction vs Observed
 

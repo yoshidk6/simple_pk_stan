@@ -27,7 +27,7 @@ transformed parameters {
 
 model {
   K[1] ~ lognormal(log(0.1), 1);
-  K[2] ~ lognormal(log(0.3), 1);
+  K[2] ~ lognormal(log(1), 1);
   
   # Assume Y follows log-normal distribution
   Y  ~ lognormal(log(mu),  s_Y);

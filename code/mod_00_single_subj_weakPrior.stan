@@ -24,8 +24,8 @@ transformed parameters {
 }
 
 model {
-  KA ~ lognormal(log(0.5), 1);
-  CL ~ lognormal(log(0.5), 1);
+  KA ~ lognormal(log(1), 1);
+  CL ~ lognormal(log(0.3), 1);
   VD ~ lognormal(log(6),   1);
   
   # Assume Y follows log-normal distribution
