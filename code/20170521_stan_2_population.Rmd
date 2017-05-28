@@ -124,7 +124,8 @@ data <-
        ID   = data.pk$ID,
        TIME = data.pk$TIME,
        DOSE = data.subj$DOSE,
-       Y    = data.pk$CONC)
+       Y    = data.pk$CONC,
+       VD_low = 2)
 
 fit.stan <-
   stan(file = "mod_02_withIIV.stan", data = data)
@@ -226,21 +227,5 @@ fit.stan <-
 fit.stan
 ```
 
-# With IIV, limit Vd
-
-```{r}
-data <- 
-  list(N    = nrow(data.pk),
-       N_ID = nrow(data.subj),
-       ID   = data.pk$ID,
-       TIME = data.pk$TIME,
-       DOSE = data.subj$DOSE,
-       Y    = data.pk$CONC)
-
-fit.stan <-
-  stan(file = "mod_02_withIIV_limVd.stan", data = data)
-
-fit.stan
-```
 
 

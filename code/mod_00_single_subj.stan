@@ -1,46 +1,42 @@
 data {
-  # For data
-  int N;    # Total number of observations
+  int N;           # Total number of observations
   vector[N] TIME;  # TIME for each data
-  real DOSE; # DOSE for each subject
+  real DOSE;       # DOSE for each subject
   vector[N] Y;     # Observation
-  
-  real KA;
-  
-  # For Prediction
-  int N_new;
-  vector[N_new] TIME_new;
+  real VD_low;     # Lower limit of VD
 }
 
 parameters {
-  real<lower=0> CL;
-  real<lower=0> VD;
-  real<lower=0> s_Y;
+  real<lower=0> KA;  # Absorption rate constant (ka)
+  real<lower=0> CL;  # Clearance (CL)
+  real<lower=VD_low> VD;  # Volume of distribution (Vd)
+  real<lower=0> s_Y; # SD of Y in log scale
 }
-
 
 transformed parameters {
-  vector[N] mu;
-  real KEL;
+  real KEL;     # Elimination rate constant (kel)
+  vector[N] mu; # Calculated concentration
   
+  # Calculate kel from CL and Vd
   KEL = CL / VD;
   
+  # Analytical solution of 1 compartment model
   mu = DOSE / VD * KA * (exp(-KA * TIME)-exp(-KEL * TIME))/(KEL-KA);
-  
 }
 
-
 model {
-  Y ~ lognormal(log(mu), s_Y);
+  #KA ~ lognormal(log(0.5), 1);
+  #CL ~ lognormal(log(0.5), 1);
+  #VD ~ lognormal(log(6),   1);
+  
+  # Assume Y follows log-normal distribution
+  Y  ~ lognormal(log(mu),  s_Y);
 }
 
 generated quantities {
-  vector[N_new] mu_new;
-  vector[N_new] y_new;
+  vector[N] y_new;
   
-  mu_new = DOSE / VD * KA * (exp(-KA * TIME_new)-exp(-KEL * TIME_new))/(KEL-KA);
-  
-  for (n in 1:N_new){
-    y_new[n]  = lognormal_rng(log(mu_new[n]), s_Y);
+  for (n in 1:N){
+    y_new[n]  = lognormal_rng(log(mu[n]), s_Y);
   }
 }

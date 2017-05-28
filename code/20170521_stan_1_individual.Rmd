@@ -222,10 +222,11 @@ data <-
   list(N    = nrow(data.pk.id1),
        TIME = data.pk.id1$TIME,
        DOSE = 10,
-       Y    = data.pk.id1$CONC)
+       Y    = data.pk.id1$CONC,
+       VD_low = 2)
 
 fit.stan <-
-  stan(file = "mod_00_single_subj_limVd.stan", data = data)
+  stan(file = "mod_00_single_subj.stan", data = data)
 
 fit.stan
 ```
