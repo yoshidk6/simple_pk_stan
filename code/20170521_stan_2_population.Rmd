@@ -94,7 +94,7 @@ bind_cols(data.pk,
 # Plot for each dose level
 
 dat.fit.plot.each.dose <- 
-  ## Convert to Matrix
+  ## Convert to tibble
   mcmc.sample$y_new %>% t() %>% tbl_df() %>% 
   ## Re-groupe predicted values according to TIME and DOSE_LEVEL
   bind_cols(data.pk,.) %>% 
