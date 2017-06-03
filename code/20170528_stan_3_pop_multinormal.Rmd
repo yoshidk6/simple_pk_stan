@@ -55,7 +55,7 @@ data <-
        TIME = data.pk$TIME,
        DOSE = data.subj$DOSE,
        Y    = data.pk$CONC,
-       VD_low = 0)
+       KA   = 1)
 
 fit.stan <-
   stan(file = "mod_03_multinorm.stan", data = data)
