@@ -28,9 +28,11 @@ data.pk.plot <-
 
 # Summary
 Strong prior worked for model w/o IIV, but with IIV, label switching issue persisted  
-Tried ordered models but seemed like prior/limit settings are tricky, didn't really work
-
+Tried ordered models but seemed like prior/limit settings are tricky, didn't really work  
+Assigning equation to limit individual Vd didn't work, maybe cannot use vector for <limit> statements  
 Best circumvention was to limit lower value of VD based on physiological rationale, both for typical VD and individual VD
+
+Finally, just giving reasonable initial values worked
 
 The models in the blog are as follows:
 
@@ -142,7 +144,85 @@ fit.stan
 
 
 
+# With IIV, reasonable initial values
 
+```{r}
+init <- function(){
+    list(KA = exp(rnorm(1, log(0.5), 0.2)),
+         CL = exp(rnorm(1, log(0.5), 0.2)),
+         VD = exp(rnorm(1, log(5), 0.2)),
+         s_CL= exp(rnorm(1, log(0.2), 0.5)),
+         s_VD= exp(rnorm(1, log(0.2), 0.5)),
+         s_Y = runif(1, 0.5, 2),
+         CLi = rep(0.5,nrow(data.subj)),
+         VDi = rep(5,  nrow(data.subj)))
+}
+
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       Y    = data.pk$CONC)
+
+fit.stan <-
+  stan(file = "mod_02_withIIV.stan", data = data)
+
+fit.stan
+```
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
+
+
+## Check covariates
+
+```{r}
+
+fit.CLi <- 
+  summary(fit.stan, pars = c("CLi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+fit.VDi <- 
+  summary(fit.stan, pars = c("VDi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+
+fit.indiv.params <-
+  bind_cols(tibble(ID=1:nrow(fit.CLi)),
+            fit.CLi %>% rename(CL=mean),
+            fit.VDi %>% rename(VD=mean))
+
+
+fit.indiv.params %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+
+
+data.cov <- read_csv("../data/subj_dose_cov_20170521.csv") 
+
+fit.indiv.params.cov <-
+  full_join(fit.indiv.params, data.cov)
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(WT,Value)) +
+  geom_point() +
+  facet_wrap(~Parameter, scales="free") +
+  geom_smooth(method="lm")
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(factor(SEX),Value)) +
+  geom_boxplot() +
+  facet_wrap(~Parameter, scales="free")
+
+
+```
 
 # With IIV, limit Vd
 
@@ -157,7 +237,7 @@ data <-
        VD_low = 2)
 
 fit.stan <-
-  stan(file = "mod_02_withIIV.stan", data = data)
+  stan(file = "mod_02_withIIV_lim_vd.stan", data = data)
 
 fit.stan
 ```
@@ -219,6 +299,19 @@ fit.indiv.params.cov %>%
 # With IIV, ordered
 
 ```{r}
+
+init <- function(){
+    list(K = c(exp(rnorm(1, log(0.1), 0.2)), 
+               exp(rnorm(1, log(0.5), 0.2))
+               ), # 1: KEL, 2: KA
+         VD = exp(rnorm(1, log(5), 0.2)),
+         s_CL= exp(rnorm(1, log(0.2), 0.5)),
+         s_VD= exp(rnorm(1, log(0.2), 0.5)),
+         s_Y = runif(1, 0.5, 2),
+         CLi = rep(0.5,nrow(data.subj)),
+         VDi = rep(5,  nrow(data.subj)))
+}
+
 data <- 
   list(N    = nrow(data.pk),
        N_ID = nrow(data.subj),
@@ -228,7 +321,8 @@ data <-
        Y    = data.pk$CONC)
 
 fit.stan <-
-  stan(file = "mod_02_withIIV_ordered.stan", data = data)
+  stan(file = "mod_02_withIIV_ordered.stan", 
+       data = data, init = init)
 
 fit.stan
 ```
@@ -250,6 +344,7 @@ fit.stan <-
 
 fit.stan
 ```
+
 
 
 

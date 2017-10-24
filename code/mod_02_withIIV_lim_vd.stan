@@ -6,15 +6,16 @@ data {
   vector[N] TIME;  # TIME for each data
   vector[N_ID] DOSE; # DOSE for each subject
   vector[N] Y;     # Observation
+  real VD_low;     # Lower limit of VD
 }
 
 parameters {
   real<lower=0> KA;
   real<lower=0> CL;
-  real<lower=0> VD;
+  real<lower=VD_low> VD;
   
   vector<lower=0>[N_ID] CLi;
-  vector<lower=0>[N_ID] VDi;
+  vector<lower=VD_low>[N_ID] VDi;
   
   real<lower=0> s_CL;
   real<lower=0> s_VD;

@@ -1,16 +1,16 @@
 data {
-  # For data
-  int N;    # Total number of observations
-  int N_ID; # Total number of subjects
-  int ID[N];    # ID for each data
-  vector[N] TIME;  # TIME for each data
-  vector[N_ID] DOSE; # DOSE for each subject
-  vector[N] Y;     # Observation
+  // For data
+  int N;    // Total number of observations
+  int N_ID; // Total number of subjects
+  int ID[N];    // ID for each data
+  vector[N] TIME;  // TIME for each data
+  vector[N_ID] DOSE; // DOSE for each subject
+  vector[N] Y;     // Observation
 }
 
 parameters {
   real<lower=0> VD;
-  positive_ordered[2] K; # 1: KEL, 2: KA
+  positive_ordered[2] K; // 1: KEL, 2: KA
   
   real<lower=0> s_CL;
   real<lower=0> s_VD;
@@ -30,11 +30,11 @@ transformed parameters {
   vector<lower=0>[N] VD_N;
   vector<lower=0>[N] KEL_N;
   
-  # Transform parameters
+  // Transform parameters
   KA = K[2];
   CL = K[1] *  VD;
   
-  # Assign individual parameters to each data
+  // Assign individual parameters to each data
   DOSE_N = DOSE[ID];
   CL_N   = CLi[ID];
   VD_N   = VDi[ID];
@@ -48,10 +48,10 @@ transformed parameters {
 model {
   K[1] ~ lognormal(log(0.05),1);
   K[2] ~ lognormal(log(1),   1);
-  #VD ~ lognormal(log(6), 1);
-  #s_CL ~ lognormal(log(0.2), 1);
-  #s_VD ~ lognormal(log(0.2), 1);
-  #s_Y  ~ lognormal(log(0.2), 1);
+  //VD ~ lognormal(log(6), 1);
+  //s_CL ~ lognormal(log(0.2), 1);
+  //s_VD ~ lognormal(log(0.2), 1);
+  //s_Y  ~ lognormal(log(0.2), 1);
   
   CLi ~ lognormal(log(CL), s_CL);
   VDi ~ lognormal(log(VD), s_VD);

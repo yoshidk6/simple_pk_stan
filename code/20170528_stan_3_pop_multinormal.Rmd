@@ -29,7 +29,7 @@ data.pk.plot <-
 
 # Summary
 
-n_eff too small and Rhat ~1.5, quite unstable estimates
+Providing appropriate initial value resulted in a reasonable fit
 
 # Data quick look
 
@@ -48,17 +48,28 @@ data.pk.plot %>%
 # Model fit
 
 ```{r}
+
+init <- function(){
+    list(KA = exp(rnorm(1, log(0.5), 0.2)),
+         CL = exp(rnorm(1, log(0.5), 0.2)),
+         VD = exp(rnorm(1, log(5), 0.2)),
+         omega = exp(rnorm(2, log(0.2), 0.5)),
+         rho = diag(2),
+         s_Y = runif(1, 0.5, 2),
+         CLVDi=matrix(rep(c(0.5,5), ea = nrow(data.subj)), 
+                      nrow = nrow(data.subj)))
+}
+
 data <- 
   list(N    = nrow(data.pk),
        N_ID = nrow(data.subj),
        ID   = data.pk$ID,
        TIME = data.pk$TIME,
        DOSE = data.subj$DOSE,
-       Y    = data.pk$CONC,
-       KA   = 1)
+       Y    = data.pk$CONC)
 
 fit.stan <-
-  stan(file = "mod_03_multinorm.stan", data = data)
+  stan(file = "mod_03_multinorm_2.stan", data = data, init=init)
 ```
 
 

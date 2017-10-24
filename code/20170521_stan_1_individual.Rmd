@@ -24,12 +24,12 @@ data.subj <- read_csv("../data/subj_dose_20170521.csv")
 ```
 
 # Summary
-Multiple ideas worked to avoid label switching, (1) weak prior on all parameters, (2) limit of Vd lower value (with weak priors), or (3) ordered variables for KA and KEL.  
-(2) was picked for consistency with population model. 
+Multiple ideas worked to avoid label switching, (1) weak prior on all parameters, (2) limit of Vd lower value (with weak priors), (3) ordered variables for KA and KEL, (4) limit ka with CL and VD + provide weak priors and initial values.  
+(4) to be picked for consistency with population model. 
 
 The model in the blog is as follows:
 
-* Limit Vd
+* Limit ka with CL/VD
 
 # Data quick look
 
@@ -180,6 +180,37 @@ fit.stan
 ```{r ref.label="plot pred vs obs"}
 ```
 
+
+# Limit ka with CL/VD
+
+```{r}
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+init <- function(){
+    list(CL = exp(rnorm(1, log(0.5), 0.2)),
+         VD = exp(rnorm(1, log(5), 0.2)),
+         KA = exp(rnorm(1, log(0.5), 0.2)),
+         s_Y = runif(1, 0.5, 2))
+}
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC)
+
+fit.stan <-
+  stan(file = "mod_00_single_subj_lim_ka_eq.stan", 
+       data = data,
+       init = init)
+
+fit.stan
+```
+
+## Prediction vs Observed
+
+```{r ref.label="plot pred vs obs"}
+```
 
 # Ordered parameter for KA and KEL
 
