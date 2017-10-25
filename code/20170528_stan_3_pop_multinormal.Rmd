@@ -73,9 +73,30 @@ fit.stan <-
 ```
 
 
-```{r include=FALSE}
-S <- ggs(fit.stan)
-ggs_autocorrelation(S, family="s_Y")
+## Diagnostic plots
+
+```{r}
+# http://xavier-fim.net/packages/ggmcmc/#using-ggmcmc
+
+fit.param <- ggs(fit.stan)
+list.param.1 <- c("KA", "CL", "VD", "s_Y")
+list.param.2 <- c("Omega[1,1]", "Omega[2,2]", "Omega[1,2]", "cor")
+
+fit.param.plot <- 
+  fit.param %>% filter(Parameter %in% c(list.param.1,list.param.2))
+fit.param.plot.1 <- 
+  fit.param %>% filter(Parameter %in% list.param.1)
+fit.param.plot.2 <- 
+  fit.param %>% filter(Parameter %in% list.param.2)
+
+ggs_density(fit.param.plot.1)
+ggs_density(fit.param.plot.2)
+ggs_traceplot(fit.param.plot.1)
+ggs_traceplot(fit.param.plot.2)
+ggs_autocorrelation(fit.param.plot.1)
+ggs_autocorrelation(fit.param.plot.2)
+
+ggs_Rhat(fit.param.plot)
 ```
 
 ## Prediction vs Observed
