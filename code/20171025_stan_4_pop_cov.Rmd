@@ -1,0 +1,331 @@
+---
+title: "Stan analysis 4 - Population PK with covariate effect"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+---
+
+# Setup and load data
+```{r setup, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(rstan)
+library(ggmcmc)
+
+rstan_options(auto_write=T)
+options(mc.cores=parallel::detectCores())
+
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv")
+data.cov  <- read_csv("../data/subj_dose_cov_20170521.csv") 
+
+data.pk.plot <- 
+  mutate(data.pk, ID=factor(ID), DOSE_LEVEL=factor(DOSE_LEVEL))
+```
+
+# Summary
+
+Sampling became a bit unstable - maybe because random effects are too small after incorporating covariates?  
+Incorporation of thinning partly resolved the unstability  
+
+# Data quick look
+
+```{r}
+
+data.pk.plot %>% 
+  ggplot(aes(TIME, CONC, group=ID, color=DOSE_LEVEL)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~DOSE_LEVEL) +
+  scale_y_log10()
+
+```
+
+
+# Model fit
+
+```{r}
+
+init <- function(){
+    list(KA = exp(rnorm(1, log(0.5), 0.2)),
+         CL = exp(rnorm(1, log(0.5), 0.2)),
+         VD = exp(rnorm(1, log(5), 0.2)),
+         sigma = exp(rnorm(2, log(0.2), 0.5)),
+         rho = diag(2),
+         s_Y = runif(1, 0.5, 2),
+         WTCL= rnorm(1, 0.5, 1),
+         WTVD= rnorm(1, 0.5, 1),
+         CLVDiLog=matrix(rep(log(c(0.5,5)), ea = nrow(data.subj)), 
+                      nrow = nrow(data.subj)))
+}
+
+data <- 
+  list(N    = nrow(data.pk),
+       N_ID = nrow(data.subj),
+       ID   = data.pk$ID,
+       TIME = data.pk$TIME,
+       DOSE = data.subj$DOSE,
+       WT   = data.cov$WT,
+       WTMED= median(data.cov$WT),
+       Y    = data.pk$CONC)
+
+
+nChains <- 4
+nPost <- 1000 ## Number of post-burn-in samples per chain after thinning
+nBurn <- 1000 ## Number of burn-in samples per chain after thinning
+nThin <- 10
+
+nIter <- (nPost + nBurn) * nThin
+nBurnin <- nBurn * nThin
+
+fit.stan <-
+  stan(file = "mod_04_cov.stan", 
+       data = data, init=init,
+            iter = nIter,
+            warmup = nBurnin,
+            thin = nThin, 
+            chains = nChains,
+            control = list(adapt_delta = 0.8))
+```
+
+
+## Diagnostic plots
+
+```{r}
+# http://xavier-fim.net/packages/ggmcmc/#using-ggmcmc
+
+fit.param <- ggs(fit.stan)
+list.param.1 <- c("KA", "CL", "VD", "s_Y")
+list.param.2 <- c("WTCL", "WTVD")
+list.param.3 <- c("sigma[1]", "sigma[2]", "Omega[1,2]", "cor")
+
+fit.param.plot <- 
+  fit.param %>% filter(Parameter %in% c(list.param.1,list.param.2,list.param.3))
+fit.param.plot.1 <- 
+  fit.param %>% filter(Parameter %in% list.param.1)
+fit.param.plot.2 <- 
+  fit.param %>% filter(Parameter %in% list.param.2)
+fit.param.plot.3 <- 
+  fit.param %>% filter(Parameter %in% list.param.3)
+
+ggs_density(fit.param.plot.1)
+ggs_density(fit.param.plot.2)
+ggs_density(fit.param.plot.3)
+ggs_traceplot(fit.param.plot.1)
+ggs_traceplot(fit.param.plot.2)
+ggs_traceplot(fit.param.plot.3)
+ggs_autocorrelation(fit.param.plot.1)
+ggs_autocorrelation(fit.param.plot.2)
+ggs_autocorrelation(fit.param.plot.3)
+
+ggs_Rhat(fit.param.plot)
+```
+
+## Prediction vs Observed
+### Individual parameter estimates (IPRED)
+
+```{r plot pred vs obs}
+mcmc.sample <- rstan::extract(fit.stan)
+
+# Plot for each subject
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2,quantile, prob=c(0.05, 0.5, 0.95)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9)  %>% 
+  mutate(ID=factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=factor(ID)),
+             aes(TIME,CONC)) +
+  ylab("CONC")
+
+
+# Plot for each dose level
+
+dat.fit.plot.each.dose <- 
+  ## Convert to tibble
+  mcmc.sample$y_new %>% t() %>% tbl_df() %>% 
+  ## Re-groupe predicted values according to TIME and DOSE_LEVEL
+  bind_cols(data.pk,.) %>% 
+  gather(key,prediction,-(ID:DOSE_LEVEL)) %>% 
+  group_by(TIME,DOSE_LEVEL) %>%
+  ## Calc quantiles
+  summarize(`5%` =quantile(prediction, probs=0.05),
+            `50%`=quantile(prediction, probs=0.5),
+            `95%`=quantile(prediction, probs=0.95)) %>% 
+  ungroup() %>% 
+  mutate(DOSE_LEVEL=factor(DOSE_LEVEL))
+
+ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
+  facet_wrap(~DOSE_LEVEL, scale="free") +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_line( data=data.pk.plot, aes(TIME,CONC,group=ID), linetype="dotted") +
+  geom_point(data=data.pk.plot, aes(TIME,CONC,group=ID)) +
+  ylab("CONC")
+```
+
+
+### Population parameter estimates + IIV + cov
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+# Plot for each subject
+y.pred.interval <- 
+  mcmc.sample$y_newPred %>% 
+  apply(MARGIN=2,quantile, prob=c(0.05, 0.5, 0.95)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk,
+          y.pred.interval) %>% 
+  filter(ID<=9)  %>% 
+  mutate(ID=factor(ID)) %>% 
+  ggplot(aes(TIME, `50%`, color=ID)) +
+  facet_wrap(~ID) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`, fill=ID),alpha=0.1) +
+  geom_point(data=data.pk %>% filter(ID<=9) %>% mutate(ID=factor(ID)),
+             aes(TIME,CONC)) +
+  ylab("CONC")
+
+
+# Plot for each dose level
+
+dat.fit.plot.each.dose <- 
+  ## Convert to tibble
+  mcmc.sample$y_newPred %>% t() %>% tbl_df() %>% 
+  ## Re-groupe predicted values according to TIME and DOSE_LEVEL
+  bind_cols(data.pk,.) %>% 
+  gather(key,prediction,-(ID:DOSE_LEVEL)) %>% 
+  group_by(TIME,DOSE_LEVEL) %>%
+  ## Calc quantiles
+  summarize(`5%` =quantile(prediction, probs=0.05),
+            `50%`=quantile(prediction, probs=0.5),
+            `95%`=quantile(prediction, probs=0.95)) %>% 
+  ungroup() %>% 
+  mutate(DOSE_LEVEL=factor(DOSE_LEVEL))
+
+ggplot(dat.fit.plot.each.dose, aes(TIME, `50%`, color=DOSE_LEVEL)) +
+  facet_wrap(~DOSE_LEVEL, scale="free") +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_line( data=data.pk.plot, aes(TIME,CONC,group=ID), linetype="dotted") +
+  geom_point(data=data.pk.plot, aes(TIME,CONC,group=ID)) +
+  ylab("CONC")
+```
+
+## Parameter distributions
+### Individual parameter estimates (IPRED)
+
+```{r}
+fit.CLi <- 
+  summary(fit.stan, pars = c("CLi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+fit.VDi <- 
+  summary(fit.stan, pars = c("VDi"))$summary %>% 
+  tbl_df() %>% 
+  select(mean)
+
+fit.indiv.params <-
+  bind_cols(tibble(ID=1:nrow(fit.CLi)),
+            fit.CLi %>% rename(CL=mean),
+            fit.VDi %>% rename(VD=mean))
+
+fit.indiv.params %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+```
+
+### Population parameter estimates + IIV + cov
+
+```{r}
+mcmc.sample <- rstan::extract(fit.stan)
+
+fit.CLiPred <- mcmc.sample$CLiPred[1,] 
+fit.VDiPred <- mcmc.sample$VDiPred[1,] 
+
+
+fit.indiv.params.pred <-
+  tibble(CL = fit.CLiPred,
+         VD = fit.VDiPred)
+
+fit.indiv.params.pred %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+```
+
+### Random effect
+
+```{r}
+fit.indiv.params.random <- 
+  summary(fit.stan, pars = c("CLVDiLog"))$summary %>% 
+  tbl_df() %>% 
+  select(mean) %>% 
+  mutate(id = rep(1:(n()/2), each=2),
+         index = rep(c("CL","VD"),times=n()/2),
+         mean=exp(mean)) %>% 
+  spread(index, mean)
+
+fit.indiv.params.random %>% 
+  ggplot(aes(CL,VD)) +
+  geom_point() +
+  geom_smooth(method="lm")
+```
+
+### Combined plot
+
+```{r}
+bind_rows(fit.indiv.params %>% mutate(TYPE="Estimates"),
+          fit.indiv.params.pred %>% mutate(TYPE="Predicted"),
+          fit.indiv.params.random %>% mutate(TYPE="No cov")) %>% 
+  ggplot(aes(CL,VD,color=TYPE, fill=TYPE)) +
+  geom_point() +
+  geom_smooth(method="lm", alpha=0.1)
+```
+
+
+
+## Check covariates
+
+```{r}
+
+
+fit.indiv.params.cov <-
+  full_join(fit.indiv.params, data.cov)
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(WT,Value)) +
+  geom_point() +
+  facet_wrap(~Parameter, scales="free") +
+  geom_smooth(method="lm")
+
+fit.indiv.params.cov %>% 
+  gather(Parameter, Value, CL, VD) %>% 
+  ggplot(aes(factor(SEX),Value)) +
+  geom_boxplot() +
+  facet_wrap(~Parameter, scales="free")
+
+
+```
+
+
+
+
