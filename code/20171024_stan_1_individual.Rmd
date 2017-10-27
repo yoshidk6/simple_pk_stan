@@ -1,0 +1,122 @@
+---
+title: "Stan analysis 1 - Single subject"
+author: "Kenta Yoshida"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+    toc_float: true
+    theme: cosmo
+    code_folding: hide
+---
+
+# Setup and load data
+```{r setup, warning = FALSE, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(rstan)
+library(ggmcmc)
+
+rstan_options(auto_write=T)
+options(mc.cores=parallel::detectCores())
+
+data.pk   <- read_csv("../data/sim_pk_20170521.csv") 
+data.subj <- read_csv("../data/subj_dose_20170521.csv") 
+```
+
+# Summary
+Multiple ideas worked to avoid label switching, (1) weak prior on all parameters, (2) limit of Vd lower value (with weak priors), (3) ordered variables for KA and KEL, (4) limit ka with CL and VD, (5) provide weak priors and initial values.  
+(5) to be picked for consistency with population model. 
+
+
+
+# Data quick look
+
+```{r}
+data.pk %>%
+  filter(ID==1) %>% 
+  ggplot(aes(TIME, CONC)) +
+  geom_line() +
+  geom_point() 
+
+full_join(data.pk, data.subj) %>% 
+  ggplot(aes(TIME, CONC, group=ID)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~DOSE) +
+  scale_y_log10()
+
+```
+
+
+
+
+# Strong prior for ka
+
+```{r}
+data.pk.id1 <- data.pk %>% filter(ID==1)
+
+init <- function(){
+    list(KA = exp(rnorm(1, log(0.5), 0.2)),
+         CL = exp(rnorm(1, log(0.5), 0.2)),
+         VD = exp(rnorm(1, log(5), 0.2)),
+         s_Y = runif(1, 0.5, 2))
+}
+
+data <- 
+  list(N    = nrow(data.pk.id1),
+       TIME = data.pk.id1$TIME,
+       DOSE = 10,
+       Y    = data.pk.id1$CONC)
+
+
+fit.stan <-
+  stan(file = "mod_00_single_subj.stan", 
+       data = data, init = init)
+
+fit.stan
+```
+
+
+## Diagnostic plots
+
+```{r}
+# http://xavier-fim.net/packages/ggmcmc/#using-ggmcmc
+
+fit.param <- ggs(fit.stan)
+list.param <- c("KA", "CL", "VD", "s_Y")
+
+fit.param.plot <- 
+  fit.param %>% filter(Parameter %in% c(list.param))
+
+ggs_density(fit.param.plot)
+ggs_traceplot(fit.param.plot)
+ggs_autocorrelation(fit.param.plot)
+
+ggs_Rhat(fit.param.plot)
+```
+
+
+## Prediction vs Observed
+
+```{r plot pred vs obs}
+mcmc.sample <- rstan::extract(fit.stan)
+
+y.pred.interval <- 
+  mcmc.sample$y_new %>% 
+  apply(MARGIN=2, quantile, prob=c(0.05, 0.5, 0.95)) %>% 
+  t() %>% 
+  tbl_df()
+
+bind_cols(data.pk.id1,
+          y.pred.interval) %>% 
+  ggplot(aes(TIME, `50%`)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=`5%`, ymax=`95%`),alpha=0.1) +
+  geom_point(data=data.pk.id1, aes(TIME,CONC))
+
+```
+
+
+
+
